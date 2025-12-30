@@ -4,16 +4,17 @@ import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc } fro
 const ROOMS_COLLECTION = 'rooms';
 
 export const gameService = {
-    // יצירה
+    // יצירת חדר
     create: async (data) => {
         const docRef = await addDoc(collection(db, ROOMS_COLLECTION), {
             ...data,
             created_at: new Date().toISOString()
         });
-        return { id: docRef.id, ...data }; // מחזיר את ה-ID החדש
+        // חשוב: מחזירים את האובייקט עם ה-ID שנוצר ב-Firebase
+        return { id: docRef.id, ...data };
     },
 
-    // שליפת חדר ספציפי (זה מה שהיה חסר!)
+    // שליפת חדר ספציפי (היה חסר!)
     get: async (id) => {
         const docRef = doc(db, ROOMS_COLLECTION, id);
         const docSnap = await getDoc(docRef);
@@ -23,14 +24,14 @@ export const gameService = {
         throw new Error("Room not found");
     },
 
-    // חיפוש לפי קוד
+    // חיפוש חדר לפי קוד (להצטרפות)
     filter: async (criteria) => {
         const q = query(collection(db, ROOMS_COLLECTION), where("code", "==", criteria.code));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
 
-    // עדכון
+    // עדכון מצב החדר
     update: async (id, updates) => {
         const roomRef = doc(db, ROOMS_COLLECTION, id);
         await updateDoc(roomRef, updates);
