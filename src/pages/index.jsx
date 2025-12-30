@@ -1,51 +1,30 @@
-import Layout from "./Layout.jsx";
+const handleCreateRoom = async () => {
+  if (!name.trim()) return;
+  
+  const roomCode = generateRoomCode();
+  const player = {
+    id: `player_${Math.random().toString(36).substr(2, 9)}`,
+    name: name.trim(),
+    is_imposter: false,
+    is_eliminated: false,
+    has_seen_card: false,
+    rounds_survived: 0
+  };
 
-import Game from "./Game";
+  try {
+    // אנחנו שומרים את התוצאה של היצירה
+    const newRoom = await createRoomMutation.mutateAsync({
+      code: roomCode,
+      host_id: player.id,
+      status: 'lobby',
+      players: [player],
+      category_votes: {},
+      player_votes: {}
+    });
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
-
-const PAGES = {
-    
-    Game: Game,
-    
-}
-
-function _getCurrentPage(url) {
-    if (url.endsWith('/')) {
-        url = url.slice(0, -1);
-    }
-    let urlLastPart = url.split('/').pop();
-    if (urlLastPart.includes('?')) {
-        urlLastPart = urlLastPart.split('?')[0];
-    }
-
-    const pageName = Object.keys(PAGES).find(page => page.toLowerCase() === urlLastPart.toLowerCase());
-    return pageName || Object.keys(PAGES)[0];
-}
-
-// Create a wrapper component that uses useLocation inside the Router context
-function PagesContent() {
-    const location = useLocation();
-    const currentPage = _getCurrentPage(location.pathname);
-    
-    return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Game />} />
-                
-                
-                <Route path="/Game" element={<Game />} />
-                
-            </Routes>
-        </Layout>
-    );
-}
-
-export default function Pages() {
-    return (
-        <Router>
-            <PagesContent />
-        </Router>
-    );
-}
+    // כאן התיקון הקריטי: עוברים לחדר הספציפי לפי ה-ID שלו ב-Firebase
+    navigate(`/game/${newRoom.id}`, { state: { playerId: player.id } });
+  } catch (error) {
+    console.error("Failed to create room:", error);
+  }
+};
