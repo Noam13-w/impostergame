@@ -360,7 +360,6 @@ export default function GamePage() {
         isHost={isHost}
         currentPlayerId={currentPlayerId}
         onStartGame={handleStartGame}
-        onJoin={handleJoin}
       />
     );
   }

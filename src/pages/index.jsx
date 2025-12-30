@@ -1,123 +1,263 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { gameService } from '../services/gameService';
-// הסרנו את כל הייבואים של ה-components כדי למנוע קריסות
+
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function generatePlayerId() {
+  return `player_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 export default function Index() {
-  const [name, setName] = useState('');
+  const [mode, setMode] = useState(null); // 'create' | 'join'
+  const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [errorMsg, setErrorMsg] = useState(''); // להציג שגיאות למשתמש
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const createRoomMutation = useMutation({
-    mutationFn: gameService.create
-  });
-
-  const joinRoomMutation = useMutation({
-    mutationFn: gameService.filter,
-    onSuccess: (rooms) => {
-      if (rooms.length > 0) {
-        navigate(`/game/${rooms[0].id}`, { state: { playerId: `player_${Math.random().toString(36).substr(2, 9)}` } });
-      } else {
-        setErrorMsg("חדר לא נמצא");
-      }
-    },
-    onError: (err) => setErrorMsg("שגיאה בהצטרפות: " + err.message)
-  });
-
   const handleCreateRoom = async () => {
-    if (!name.trim()) return;
-    setErrorMsg(''); // ניקוי שגיאות קודמות
+    if (!playerName.trim()) return;
+
+    setLoading(true);
+    setError('');
 
     try {
-      const player = {
-        id: `player_${Math.random().toString(36).substr(2, 9)}`,
-        name: name.trim(),
-        is_host: true,
-        status: 'ready'
-      };
+      const playerId = generatePlayerId();
+      const code = generateRoomCode();
 
-      // שלב 1: יצירה ב-Firebase
-      const newRoom = await createRoomMutation.mutateAsync({
-        code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      const newRoom = await gameService.create({
+        code: code,
+        host_id: playerId,
         status: 'lobby',
-        players: [player],
-        created_at: new Date().toISOString()
+        players: [{
+          id: playerId,
+          name: playerName.trim(),
+          is_imposter: false,
+          is_eliminated: false,
+          has_seen_card: false
+        }],
+        category_votes: {},
+        player_votes: {},
+        rounds_survived: 0
       });
 
-      // שלב 2: מעבר לדף המשחק רק אם קיבלנו ID
-      if (newRoom && newRoom.id) {
-        navigate(`/game/${newRoom.id}`, { state: { playerId: player.id } });
-      } else {
-        setErrorMsg("שגיאה: לא התקבל מזהה חדר מהשרת");
-      }
-
+      localStorage.setItem('imposter_player_id', playerId);
+      navigate(`/game/${newRoom.id}`, { state: { playerId } });
     } catch (err) {
-      console.error("Critical Error:", err);
-      setErrorMsg("תקלה ביצירת החדר: " + err.message);
+      console.error('Error creating room:', err);
+      setError('שגיאה ביצירת החדר: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-white" dir="rtl">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl">
-        
-        {/* כותרת */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-400 mb-2">המתחזה</h1>
-          <p className="text-slate-400">משחק חברה מבוסס AI</p>
-        </div>
+  const handleJoinRoom = async () => {
+    if (!playerName.trim() || roomCode.length !== 6) return;
 
-        {/* הודעות שגיאה */}
-        {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-3 rounded mb-4 text-sm text-center">
-            {errorMsg}
-          </div>
-        )}
+    setLoading(true);
+    setError('');
 
-        <div className="space-y-4">
-          {/* שדה שם */}
-          <div>
-            <input
-              type="text"
-              placeholder="השם שלך"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded p-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-            />
-          </div>
+    try {
+      const rooms = await gameService.filter({ code: roomCode.toUpperCase() });
 
-          {/* כפתור יצירה */}
-          <button
-            onClick={handleCreateRoom}
-            disabled={createRoomMutation.isPending || !name}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded transition-colors"
+      if (!rooms || rooms.length === 0) {
+        setError('חדר לא נמצא');
+        setLoading(false);
+        return;
+      }
+
+      const room = rooms[0];
+
+      if (room.status !== 'lobby') {
+        setError('המשחק כבר התחיל');
+        setLoading(false);
+        return;
+      }
+
+      const playerId = generatePlayerId();
+      const newPlayer = {
+        id: playerId,
+        name: playerName.trim(),
+        is_imposter: false,
+        is_eliminated: false,
+        has_seen_card: false
+      };
+
+      console.log('Adding player to room:', room.id, newPlayer);
+      const updatedRoom = await gameService.addPlayer(room.id, newPlayer);
+      console.log('Updated room:', updatedRoom);
+
+      localStorage.setItem('imposter_player_id', playerId);
+      navigate(`/game/${room.id}`, { state: { playerId } });
+    } catch (err) {
+      console.error('Error joining room:', err);
+      setError('שגיאה בהצטרפות: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial mode selection
+  if (!mode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex flex-col items-center justify-center p-6" dir="rtl">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-cyan-400 to-purple-400 mb-4">
+            אימפוסטר
+          </h1>
+          <p className="text-gray-400">מי מסתתר ביניכם?</p>
+        </motion.div>
+
+        <div className="flex flex-col gap-4 w-full max-w-xs">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
           >
-            {createRoomMutation.isPending ? "יוצר חדר..." : "צור משחק חדש"}
-          </button>
-
-          <div className="text-center text-slate-500 text-sm py-2">- או -</div>
-
-          {/* הצטרפות */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="קוד חדר"
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded p-3 text-center uppercase tracking-widest focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              onClick={() => joinRoomMutation.mutate({ code: roomCode })}
-              disabled={!roomCode}
-              className="bg-slate-700 hover:bg-slate-600 text-white px-6 rounded transition-colors"
+            <Button
+              onClick={() => setMode('create')}
+              className="w-full h-16 text-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 border-0 rounded-2xl"
             >
-              הצטרף
-            </button>
-          </div>
+              יצירת משחק חדש
+            </Button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Button
+              onClick={() => setMode('join')}
+              variant="outline"
+              className="w-full h-16 text-xl border-2 border-purple-500/50 text-purple-300 hover:bg-purple-500/20 rounded-2xl"
+            >
+              הצטרפות למשחק
+            </Button>
+          </motion.div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Create room mode
+  if (mode === 'create') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex flex-col items-center justify-center p-6" dir="rtl">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm"
+        >
+          <h2 className="text-2xl font-bold text-white text-center mb-8">יצירת משחק חדש</h2>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Input
+              placeholder="הכנס את שמך"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !loading && playerName.trim() && handleCreateRoom()}
+              className="h-14 text-lg bg-slate-800/50 border-purple-500/30 text-white text-center rounded-xl"
+              autoFocus
+              disabled={loading}
+            />
+
+            <Button
+              onClick={handleCreateRoom}
+              disabled={!playerName.trim() || loading}
+              className="w-full h-14 text-lg bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 rounded-xl disabled:opacity-50"
+            >
+              {loading ? 'יוצר חדר...' : 'צור חדר'}
+            </Button>
+
+            <Button
+              onClick={() => { setMode(null); setError(''); }}
+              variant="ghost"
+              className="w-full text-gray-400 hover:text-white"
+              disabled={loading}
+            >
+              חזרה
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Join room mode
+  if (mode === 'join') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex flex-col items-center justify-center p-6" dir="rtl">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm"
+        >
+          <h2 className="text-2xl font-bold text-white text-center mb-8">הצטרפות למשחק</h2>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-3 rounded-xl mb-4 text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <Input
+              placeholder="הכנס את שמך"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="h-14 text-lg bg-slate-800/50 border-purple-500/30 text-white text-center rounded-xl"
+              autoFocus
+              disabled={loading}
+            />
+
+            <Input
+              placeholder="קוד החדר (6 תווים)"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === 'Enter' && !loading && playerName.trim() && roomCode.length === 6 && handleJoinRoom()}
+              maxLength={6}
+              className="h-14 text-2xl font-mono bg-slate-800/50 border-purple-500/30 text-white text-center tracking-widest rounded-xl uppercase"
+              disabled={loading}
+            />
+
+            <Button
+              onClick={handleJoinRoom}
+              disabled={!playerName.trim() || roomCode.length !== 6 || loading}
+              className="w-full h-14 text-lg bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 rounded-xl disabled:opacity-50"
+            >
+              {loading ? 'מצטרף...' : 'הצטרף'}
+            </Button>
+
+            <Button
+              onClick={() => { setMode(null); setError(''); setRoomCode(''); }}
+              variant="ghost"
+              className="w-full text-gray-400 hover:text-white"
+              disabled={loading}
+            >
+              חזרה
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return null;
 }

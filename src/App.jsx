@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Index from './pages/index'; // ודא שזה הנתיב הנכון לקובץ index.jsx שלך
-import Game from './pages/Game';   // ודא שזה הנתיב הנכון לקובץ Game.jsx שלך
+import Index from './pages/index';
+import Game from './pages/Game';
 
 function App() {
   return (
