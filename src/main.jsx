@@ -1,18 +1,27 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom' // הוספנו את זה!
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.jsx'
 import './index.css'
-// 1. ייבוא הכלים של React Query
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// 2. יצירת מופע חדש של הקליינט
-const queryClient = new QueryClient()
+// יצירת הקליינט לניהול המידע
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // מונע ריענון מיותר
+      retry: false
+    },
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {/* 3. עטיפת האפליקציה ב-Provider */}
+    {/* הסדר כאן חשוב: קודם Query, אחר כך Router, ובסוף האפליקציה */}
     <QueryClientProvider client={queryClient}>
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,
 )
