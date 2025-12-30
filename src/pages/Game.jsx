@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useLocation } from 'react-router-dom';
 import { gameService } from '../services/gameService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,26 +19,42 @@ import LoadingScreen from '../components/game/LoadingScreen';
 import ErrorDisplay from '../components/game/ErrorBoundary';
 
 export default function GamePage() {
+  const { id } = useParams();
+  const location = useLocation();
   const [currentPlayerId, setCurrentPlayerId] = useState(null);
   const [currentRoomId, setCurrentRoomId] = useState(null);
   const [error, setError] = useState(null);
   const queryClient = useQueryClient();
 
-  // Load player ID from localStorage
+  // Initialize room and player IDs
   useEffect(() => {
-    const stored = localStorage.getItem('imposter_player_id');
-    if (stored) {
-      setCurrentPlayerId(stored);
+    if (id) {
+      setCurrentRoomId(id);
     }
-  }, []);
+
+    if (location.state?.playerId) {
+      setCurrentPlayerId(location.state.playerId);
+      localStorage.setItem('imposter_player_id', location.state.playerId);
+    } else {
+      const stored = localStorage.getItem('imposter_player_id');
+      if (stored) {
+        setCurrentPlayerId(stored);
+      }
+    }
+  }, [id, location.state]);
 
   // Get current room data
   const { data: room, isLoading } = useQuery({
     queryKey: ['game_room', currentRoomId],
     queryFn: async () => {
       if (!currentRoomId) return null;
-      const rooms = await gameService.filter({ id: currentRoomId });
-      return rooms[0] || null;
+      try {
+        const roomData = await gameService.get(currentRoomId);
+        return roomData;
+      } catch (err) {
+        console.error("Error fetching room:", err);
+        return null;
+      }
     },
     enabled: !!currentRoomId,
     refetchInterval: 2000, // Poll every 2 seconds for real-time updates
@@ -49,7 +66,7 @@ export default function GamePage() {
       const playerId = generatePlayerId();
 
       const newRoom = await gameService.create({
-        room_code: roomCode,
+        code: roomCode,
         host_id: playerId,
         status: 'lobby',
         players: [{
@@ -77,7 +94,7 @@ export default function GamePage() {
 
   const joinRoomMutation = useMutation({
     mutationFn: async ({ playerName, roomCode }) => {
-      const rooms = await gameService.filter({ room_code: roomCode });
+      const rooms = await gameService.filter({ code: roomCode });
       if (!rooms || rooms.length === 0) {
         throw new Error('חדר לא נמצא');
       }

@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import QRCodeDisplay from './QRCodeDisplay';
 
-export default function Lobby({ 
-  room, 
-  isHost, 
+export default function Lobby({
+  room,
+  isHost,
   currentPlayerId,
   onStartGame,
-  onJoin 
+  onJoin
 }) {
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -19,7 +19,7 @@ export default function Lobby({
   const [mode, setMode] = useState(null); // 'host' | 'join'
 
   const copyCode = () => {
-    navigator.clipboard.writeText(room?.room_code || '');
+    navigator.clipboard.writeText(room?.code || room?.room_code || '');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -81,7 +81,7 @@ export default function Lobby({
           className="w-full max-w-sm"
         >
           <h2 className="text-2xl font-bold text-white text-center mb-8">יצירת משחק חדש</h2>
-          
+
           <div className="space-y-4">
             <Input
               placeholder="הכנס את שמך"
@@ -91,7 +91,7 @@ export default function Lobby({
               className="h-14 text-lg bg-slate-800/50 border-purple-500/30 text-white text-center rounded-xl"
               autoFocus
             />
-            
+
             <Button
               onClick={() => onJoin(playerName, null, true)}
               disabled={!playerName.trim()}
@@ -99,7 +99,7 @@ export default function Lobby({
             >
               צור חדר
             </Button>
-            
+
             <Button
               onClick={() => setMode(null)}
               variant="ghost"
@@ -123,7 +123,7 @@ export default function Lobby({
           className="w-full max-w-sm"
         >
           <h2 className="text-2xl font-bold text-white text-center mb-8">הצטרפות למשחק</h2>
-          
+
           <div className="space-y-4">
             <Input
               placeholder="הכנס את שמך"
@@ -132,7 +132,7 @@ export default function Lobby({
               className="h-14 text-lg bg-slate-800/50 border-purple-500/30 text-white text-center rounded-xl"
               autoFocus
             />
-            
+
             <Input
               placeholder="קוד החדר"
               value={roomCode}
@@ -141,7 +141,7 @@ export default function Lobby({
               maxLength={6}
               className="h-14 text-2xl font-mono bg-slate-800/50 border-purple-500/30 text-white text-center tracking-widest rounded-xl"
             />
-            
+
             <Button
               onClick={() => onJoin(playerName, roomCode, false)}
               disabled={!playerName.trim() || roomCode.length !== 6}
@@ -149,7 +149,7 @@ export default function Lobby({
             >
               הצטרף
             </Button>
-            
+
             <Button
               onClick={() => setMode(null)}
               variant="ghost"
@@ -172,13 +172,13 @@ export default function Lobby({
         className="text-center pt-8"
       >
         <h1 className="text-3xl font-bold text-white mb-2">חדר משחק</h1>
-        
+
         {/* Room Code Display */}
         <div className="mt-6 bg-slate-800/50 rounded-2xl p-6 border border-purple-500/30">
           <p className="text-gray-400 text-sm mb-2">קוד החדר:</p>
           <div className="flex items-center justify-center gap-3">
             <span className="text-4xl font-mono font-bold text-cyan-400 tracking-widest">
-              {room?.room_code}
+              {room?.code || room?.room_code}
             </span>
             <Button
               onClick={copyCode}
@@ -189,7 +189,7 @@ export default function Lobby({
               {copied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
             </Button>
           </div>
-          
+
           <Button
             onClick={() => setShowQR(!showQR)}
             variant="ghost"
@@ -198,14 +198,14 @@ export default function Lobby({
             <QrCode className="w-4 h-4 ml-2" />
             {showQR ? 'הסתר QR' : 'הצג QR'}
           </Button>
-          
+
           {showQR && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="mt-4"
             >
-              <QRCodeDisplay code={room?.room_code} />
+              <QRCodeDisplay code={room?.code || room?.room_code} />
             </motion.div>
           )}
         </div>
@@ -219,7 +219,7 @@ export default function Lobby({
             שחקנים ({room?.players?.length || 0})
           </h2>
         </div>
-        
+
         <div className="grid gap-3">
           {room?.players?.map((player, index) => (
             <motion.div
@@ -227,11 +227,10 @@ export default function Lobby({
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`bg-slate-800/50 rounded-xl p-4 border ${
-                player.id === room.host_id 
-                  ? 'border-yellow-500/50' 
-                  : 'border-purple-500/20'
-              }`}
+              className={`bg-slate-800/50 rounded-xl p-4 border ${player.id === room.host_id
+                ? 'border-yellow-500/50'
+                : 'border-purple-500/20'
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -263,7 +262,7 @@ export default function Lobby({
             disabled={(room?.players?.length || 0) < 3}
             className="w-full h-16 text-xl bg-gradient-to-r from-green-600 to-cyan-600 hover:from-green-500 hover:to-cyan-500 rounded-2xl disabled:opacity-50"
           >
-            {(room?.players?.length || 0) < 3 
+            {(room?.players?.length || 0) < 3
               ? `נדרשים לפחות 3 שחקנים (${room?.players?.length || 0}/3)`
               : 'התחל משחק!'
             }
