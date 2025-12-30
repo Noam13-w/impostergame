@@ -1,4 +1,4 @@
-import { db } from "./firebase";
+import { db } from "../firebase";
 import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc, arrayUnion } from "firebase/firestore";
 
 const ROOMS_COLLECTION = 'rooms';
