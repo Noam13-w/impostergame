@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore"; // הוספנו את זה כדי להשתמש במסד הנתונים
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCfk5l5ZsmlkFeOKihVE0-_TjAHEhvo6hk",
@@ -12,5 +12,4 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-// אנחנו מייצאים את db כדי שנוכל להשתמש בו בקבצים אחרים
 export const db = getFirestore(app);
