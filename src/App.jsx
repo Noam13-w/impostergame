@@ -9,7 +9,7 @@ function App() {
       <Routes>
         {/* עמוד הבית */}
         <Route path="/" element={<Index />} />
-        
+
         {/* עמוד המשחק - הנקודתיים לפני id אומרות שזה משתנה דינמי */}
         <Route path="/game/:id" element={<Game />} />
       </Routes>

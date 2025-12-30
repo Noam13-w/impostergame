@@ -81,13 +81,12 @@ export default function GamePage() {
         rounds_survived: 0
       });
 
+      return { room: newRoom, playerId };
+    },
+    onSuccess: ({ room, playerId }) => {
       localStorage.setItem('imposter_player_id', playerId);
       setCurrentPlayerId(playerId);
-      setCurrentRoomId(newRoom.id);
-
-      return newRoom;
-    },
-    onSuccess: () => {
+      setCurrentRoomId(room.id);
       queryClient.invalidateQueries({ queryKey: ['game_room'] });
     }
   });
@@ -105,25 +104,22 @@ export default function GamePage() {
       }
 
       const playerId = generatePlayerId();
-      const updatedPlayers = [...(room.players || []), {
+      const newPlayer = {
         id: playerId,
         name: playerName,
         is_imposter: false,
         is_eliminated: false,
         has_seen_card: false
-      }];
+      };
 
-      await gameService.update(room.id, {
-        players: updatedPlayers
-      });
+      const updatedRoom = await gameService.addPlayer(room.id, newPlayer);
 
+      return { room: updatedRoom, playerId };
+    },
+    onSuccess: ({ room, playerId }) => {
       localStorage.setItem('imposter_player_id', playerId);
       setCurrentPlayerId(playerId);
       setCurrentRoomId(room.id);
-
-      return room;
-    },
-    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['game_room'] });
     }
   });
@@ -142,10 +138,15 @@ export default function GamePage() {
   const handleJoin = async (playerName, roomCode, isHost) => {
     try {
       setError(null);
+      let result;
       if (isHost) {
-        await createRoomMutation.mutateAsync({ playerName });
+        result = await createRoomMutation.mutateAsync({ playerName });
       } else {
-        await joinRoomMutation.mutateAsync({ playerName, roomCode });
+        result = await joinRoomMutation.mutateAsync({ playerName, roomCode });
+      }
+
+      if (result && result.room && result.room.id) {
+        navigate(`/game/${result.room.id}`);
       }
     } catch (error) {
       setError(error.message || 'שגיאה בהצטרפות למשחק');

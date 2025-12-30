@@ -1,5 +1,5 @@
-import { db } from "../firebase";
-import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc } from "firebase/firestore";
+import { db } from "./firebase";
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc, arrayUnion } from "firebase/firestore";
 
 const ROOMS_COLLECTION = 'rooms';
 
@@ -14,7 +14,7 @@ export const gameService = {
         return { id: docRef.id, ...data };
     },
 
-    // שליפת חדר ספציפי (היה חסר!)
+    // שליפת חדר ספציפי
     get: async (id) => {
         const docRef = doc(db, ROOMS_COLLECTION, id);
         const docSnap = await getDoc(docRef);
@@ -35,6 +35,16 @@ export const gameService = {
     update: async (id, updates) => {
         const roomRef = doc(db, ROOMS_COLLECTION, id);
         await updateDoc(roomRef, updates);
+        const updated = await getDoc(roomRef);
+        return { id: updated.id, ...updated.data() };
+    },
+
+    // הוספת שחקן בצורה אטומית
+    addPlayer: async (roomId, player) => {
+        const roomRef = doc(db, ROOMS_COLLECTION, roomId);
+        await updateDoc(roomRef, {
+            players: arrayUnion(player)
+        });
         const updated = await getDoc(roomRef);
         return { id: updated.id, ...updated.data() };
     }
