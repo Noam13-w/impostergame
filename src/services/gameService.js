@@ -1,41 +1,30 @@
+import { db } from "../firebase"; // מייבאים את החיבור לענן
+import { collection, addDoc, getDocs, query, where, doc, updateDoc, getDoc } from "firebase/firestore";
 
-const STORAGE_KEY = 'imposter_game_rooms';
-
-const getRooms = () => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-};
-
-const saveRooms = (rooms) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
-};
+const ROOMS_COLLECTION = 'rooms';
 
 export const gameService = {
+    // יצירת חדר חדש בענן
     create: async (data) => {
-        const rooms = getRooms();
-        const newRoom = {
-            id: crypto.randomUUID(), // Use native crypto for UUID
-            created_at: new Date().toISOString(),
-            ...data
-        };
-        rooms.push(newRoom);
-        saveRooms(rooms);
-        return newRoom;
-    },
-    filter: async (criteria) => {
-        const rooms = getRooms();
-        return rooms.filter(room => {
-            return Object.entries(criteria).every(([key, value]) => room[key] === value);
+        const docRef = await addDoc(collection(db, ROOMS_COLLECTION), {
+            ...data,
+            created_at: new Date().toISOString()
         });
+        return { id: docRef.id, ...data };
     },
+
+    // חיפוש חדר לפי קוד (כדי שחברים יוכלו להצטרף)
+    filter: async (criteria) => {
+        const q = query(collection(db, ROOMS_COLLECTION), where("code", "==", criteria.code));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
+
+    // עדכון מצב המשחק (למשל כששחקן מצטרף)
     update: async (id, updates) => {
-        const rooms = getRooms();
-        const index = rooms.findIndex(r => r.id === id);
-        if (index === -1) throw new Error('Room not found');
-        
-        const updatedRoom = { ...rooms[index], ...updates };
-        rooms[index] = updatedRoom;
-        saveRooms(rooms);
-        return updatedRoom;
+        const roomRef = doc(db, ROOMS_COLLECTION, id);
+        await updateDoc(roomRef, updates);
+        const updated = await getDoc(roomRef);
+        return { id: updated.id, ...updated.data() };
     }
 };
