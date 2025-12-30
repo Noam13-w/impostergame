@@ -39,12 +39,30 @@ export const gameService = {
         return { id: updated.id, ...updated.data() };
     },
 
-    // הוספת שחקן בצורה אטומית
+    // הוספת שחקן בצורה בטוחה
     addPlayer: async (roomId, player) => {
         const roomRef = doc(db, ROOMS_COLLECTION, roomId);
+        const roomSnap = await getDoc(roomRef);
+
+        if (!roomSnap.exists()) {
+            throw new Error("Room not found");
+        }
+
+        const currentData = roomSnap.data();
+        const currentPlayers = currentData.players || [];
+
+        // בדיקה אם השחקן כבר קיים (לפי ID)
+        const playerExists = currentPlayers.some(p => p.id === player.id);
+        if (playerExists) {
+            return { id: roomSnap.id, ...currentData };
+        }
+
+        const updatedPlayers = [...currentPlayers, player];
+
         await updateDoc(roomRef, {
-            players: arrayUnion(player)
+            players: updatedPlayers
         });
+
         const updated = await getDoc(roomRef);
         return { id: updated.id, ...updated.data() };
     }
